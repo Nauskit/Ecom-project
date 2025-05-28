@@ -1,6 +1,9 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const bcrypt = require("bcrypt");
+const nodemailer = require("nodemailer");
+const speakeasy = require("speakeasy");
+const getsecret = require("getsecret");
 const db = require("./db");
 
 require("dotenv").config();
@@ -20,6 +23,76 @@ const authorizeRoles = (...allowedRoles) => {
     next();
   };
 };
+
+//OTP genarate
+const genarateOTP = () => {
+  return speakeasy.totp({
+    secret: speakeasy.generateSecret().base32,
+    encoding: "base32",
+    step: 120,
+  });
+};
+
+//otp verify
+const verifyOTP = (email, otp) => {
+  const secret = getsecret(email);
+  return speakeasy.totp.verify({
+    secret,
+    encoding: "base32",
+    token: otp,
+    step: 120,
+  });
+};
+
+//send email option
+async function sendOTPViaEmail(email, otp) {
+  const transporter = nodemailer.createTransport({
+    service: "email",
+    auth: {
+      user: "dummy@email.com",
+      pass: "password",
+    },
+  });
+
+  const mailOptions = {
+    from: "dummy@email.com",
+    to: email,
+    subject: "OTP Verification",
+    text: `Your OTP is: ${otp}`,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent: " + info.response);
+  } catch (err) {
+    console.error("error sending email:", err);
+    throw err;
+  }
+}
+
+//path send to email
+app.post("/send-otp", async (req, res) => {
+  const { email } = req.body;
+  const otp = genarateOTP();
+
+  try {
+    await sendOTPViaEmail(email, otp);
+    return res.status(200).json({ message: "OTP sent successfully" });
+  } catch (err) {
+    console.error("Error sending OTP:", err);
+    return res.status(500).json({ message: "Failed to send OTP" });
+  }
+});
+
+//path verify OTP
+app.post("/verify-otp", (req, res) => {
+  const { email, otp } = req.body;
+  const isValid = verifyOTP(email, otp);
+  if (!isValid) {
+    return res.status(400).json({ message: "Invalid OTP" });
+  }
+  return res.status(200).json({ message: "OTP verification successful" });
+});
 
 //get path
 app.get("/products", (req, res) => {
