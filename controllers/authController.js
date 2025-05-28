@@ -1,6 +1,7 @@
 const db = require("../db");
 const { genarateOTP, verifyOTP } = require("../utils/otp");
 const sendOTPViaEmail = require("../utils/mailer");
+const generateToken = require("../middleware/jwt");
 const bcrypt = require("bcrypt");
 
 const SALT_ROUNDS = 10;
@@ -24,12 +25,22 @@ exports.login = async (req, res) => {
     if (result.length === 0) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
-
+    const user = result[0];
     const isMatch = await bcrypt.compare(password, result[0].password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
-    return res.status(200).json({ message: "Login successful" });
+
+    const token = generateToken(user);
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+    });
   } catch (err) {
     console.error("เกิดข้อผิดพลาด", err);
     return res.status(500).json({ message: "Server error" });
@@ -39,10 +50,7 @@ exports.login = async (req, res) => {
 exports.register = async (req, res) => {
   const { username, password, email } = req.body;
 
-  let role = req.body.role;
-  if (!role) {
-    role = "user"; // กำหนด default ถ้า role ไม่ส่งมา
-  }
+  let role = "user";
 
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
   if (!username || !password) {

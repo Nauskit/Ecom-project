@@ -10,7 +10,7 @@ exports.getAllProducts = (req, res) => {
 
 exports.getProductById = (req, res) => {
   const id = Number(req.params.id);
-  const sql = "SELECT * FROM produts WHERE id = ?";
+  const sql = "SELECT * FROM products WHERE id = ?";
   db.query(sql, [id], (err, result) => {
     if (err) return res.status(500).json({ message: "Server error" });
     if (result.length === 0)
@@ -49,7 +49,7 @@ exports.updateProduct = (req, res) => {
     return res.status(400).json({ message: "All field are required!" });
   }
   const sql =
-    "UPDATE SET product_name = ? description = ? price = ? quantity = ? WHERE id = ?";
+    "UPDATE products SET product_name = ? description = ? price = ? quantity = ? WHERE id = ?";
   db.query(
     sql,
     [product_name, description, price, quantity, id],
